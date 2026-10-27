@@ -26,8 +26,8 @@ namespace makerjr {
                 let light = input.lightLevel();
                 let sound = input.soundLevel(); 
 
-                // Package and send over Bluetooth
-                let packet = `TWIN:${btnA},${btnB},${shake},${pitch},${roll},${compass},${temp},${light},${sound}\n`;
+                // MakeCode-Safe string concatenation (No template literals)
+                let packet = "TWIN:" + btnA + "," + btnB + "," + shake + "," + pitch + "," + roll + "," + compass + "," + temp + "," + light + "," + sound + "\n";
                 bluetooth.uartWriteString(packet);
                 
                 basic.pause(100); 
@@ -35,46 +35,53 @@ namespace makerjr {
         });
 
         // 2. THE RECEIVER (Listens for Dashboard commands)
-        bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
-            let cmd = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine)).trim();
+        bluetooth.onUartDataReceived("\n", function () {
+            let cmd = bluetooth.uartReadUntil("\n");
             
-            if (cmd.charAt(0) === 'L') {
-                // Receive Raw LED Grid (25-bit integer)
-                currentLEDs = parseInt(cmd.substr(2));
+            // MakeCode-Safe way to trim carriage returns from Bluetooth text
+            let cleanCmd = "";
+            for(let i = 0; i < cmd.length; i++) {
+                if(cmd.charCodeAt(i) >= 32) {
+                    cleanCmd += cmd.charAt(i);
+                }
+            }
+            
+            if (cleanCmd.charAt(0) === 'L') {
+                // Receive Raw LED Grid
+                currentLEDs = parseInt(cleanCmd.substr(2));
                 redrawLEDs();
             } 
-            else if (cmd.charAt(0) === 'C') {
+            else if (cleanCmd.charAt(0) === 'C') {
                 // Clear Screen Command
                 currentLEDs = 0;
                 basic.clearScreen();
             } 
-            else if (cmd.charAt(0) === 'T') {
+            else if (cleanCmd.charAt(0) === 'T') {
                 // Scroll Text Command
-                let msg = cmd.substr(2);
+                let msg = cleanCmd.substr(2);
                 control.inBackground(function() {
                     basic.showString(msg);
                     basic.clearScreen();
                     redrawLEDs(); // Restore the drawing after text finishes
                 });
             }
-            else if (cmd.charAt(0) === 'I') {
+            else if (cleanCmd.charAt(0) === 'I') {
                 // Show Built-In Icon Command
-                let iconIdx = parseInt(cmd.substr(2));
+                let iconIdx = parseInt(cleanCmd.substr(2));
                 if (iconIdx === 0) basic.showIcon(IconNames.Heart);
                 else if (iconIdx === 1) basic.showIcon(IconNames.Happy);
                 else if (iconIdx === 2) basic.showIcon(IconNames.Sad);
                 else if (iconIdx === 3) basic.showIcon(IconNames.Ghost);
                 else if (iconIdx === 4) basic.showIcon(IconNames.Skull);
                 
-                // We wipe our manual memory so we don't accidentally overwrite the icon later
                 currentLEDs = 0; 
             }
-            else if (cmd.charAt(0) === 'M') {
-                // Play Melody Command
-                let melIdx = parseInt(cmd.substr(2));
-                if (melIdx === 0) music.play(music.builtinPlayableMelody(Melodies.BaDing), music.PlaybackMode.InBackground);
-                else if (melIdx === 1) music.play(music.builtinPlayableMelody(Melodies.PowerUp), music.PlaybackMode.InBackground);
-                else if (melIdx === 2) music.play(music.builtinPlayableMelody(Melodies.PowerDown), music.PlaybackMode.InBackground);
+            else if (cleanCmd.charAt(0) === 'M') {
+                // Play Melody Command (Legacy Safe API)
+                let melIdx = parseInt(cleanCmd.substr(2));
+                if (melIdx === 0) music.startMelody(music.builtInMelody(Melodies.BaDing), MelodyOptions.OnceInBackground);
+                else if (melIdx === 1) music.startMelody(music.builtInMelody(Melodies.PowerUp), MelodyOptions.OnceInBackground);
+                else if (melIdx === 2) music.startMelody(music.builtInMelody(Melodies.PowerDown), MelodyOptions.OnceInBackground);
             }
         });
     }
