@@ -7,7 +7,7 @@
         "bluetooth": "*"
     },
     "files": [
-        "main.ts",
+        "main.ts"
          ],
     
     "public": true
