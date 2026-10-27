@@ -1,0 +1,18 @@
+{
+    "name": "makerjr",
+    "version": "1.0.0",
+    "description": "An interactive Digital Twin dashboard for early learners. Part of the MAKEROBOT Ecosystem, created by MAKERSPACE@UTHM.",
+    "dependencies": {
+        "core": "*",
+        "bluetooth": "*"
+    },
+    "files": [
+        "main.blocks",
+        "main.ts",
+        "README.md"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "public": true
+}
