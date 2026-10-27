@@ -1,8 +1,8 @@
-//% color="#3b82f6" weight=100 icon="\uf108" block="Digital Twin"
-namespace digitaltwin {
+//% color="#3b82f6" weight=100 icon="\uf108" block="MakerJr"
+namespace makerjr {
     
     let isRunning = false;
-    let currentLEDs = 0; // Tracks the 25-bit integer for the grid
+    let currentLEDs = 0; 
 
     //% block="📡 Start Digital Twin"
     //% weight=100
@@ -24,7 +24,7 @@ namespace digitaltwin {
                 let compass = input.compassHeading();
                 let temp = input.temperature();
                 let light = input.lightLevel();
-                let sound = input.soundLevel(); // Note: Requires micro:bit V2
+                let sound = input.soundLevel(); 
 
                 // Package and send over Bluetooth
                 let packet = `TWIN:${btnA},${btnB},${shake},${pitch},${roll},${compass},${temp},${light},${sound}\n`;
