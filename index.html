@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Twin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; background-color: #0f172a; color: #f8fafc; overflow-x: hidden; }
+        
+        /* Custom UI Elements matching the mockup */
+        .panel { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+        
+        /* Twin Board Styling */
+        .twin-board { background-color: #09090b; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; width: 280px; height: 280px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .twin-logo { color: #fbbf24; font-size: 10px; font-weight: 900; letter-spacing: 2px; position: absolute; top: 20px; border-bottom: 2px solid #f59e0b; padding-bottom: 2px; }
+        .twin-btn { width: 40px; height: 40px; border-radius: 50%; background-color: #334155; display: flex; justify-content: center; align-items: center; font-weight: bold; position: absolute; top: 50%; transform: translateY(-50%); transition: all 0.1s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.4); }
+        .twin-btn.pressed { background-color: #ef4444; color: white; box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); transform: translateY(-50%) scale(0.95); }
+        #btn-a-ui { left: 15px; } #btn-b-ui { right: 15px; }
+        
+        /* LED Grid */
+        .led-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; z-index: 10; }
+        .led-dot { width: 16px; height: 16px; background-color: #1e293b; border-radius: 4px; cursor: pointer; transition: background-color 0.1s; }
+        .led-dot.on { background-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
+        
+        /* Instruments */
+        .instrument-box { background-color: #0f172a; border: 1px solid #1e293b; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .horizon-circle { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(180deg, #1e293b 50%, #334155 50%); position: relative; overflow: hidden; border: 2px solid #475569; }
+        .pitch-line { width: 100%; height: 4px; background-color: #22c55e; position: absolute; top: 50%; transform: translateY(-50%); transition: top 0.1s linear; }
+        .roll-line { width: 100%; height: 4px; background-color: #3b82f6; position: absolute; top: 50%; transform: translateY(-50%); transition: transform 0.1s linear; }
+        .compass-circle { width: 80px; height: 80px; border-radius: 50%; background-color: #1e293b; border: 2px solid #475569; position: relative; display: flex; justify-content: center; align-items: center; }
+        .compass-needle { width: 4px; height: 40px; background: linear-gradient(to top, transparent 50%, #ef4444 50%); position: absolute; transition: transform 0.1s linear; transform-origin: center; }
+        
+        /* Meters */
+        progress { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background-color: #334155; }
+        progress::-webkit-progress-bar { background-color: #334155; border-radius: 3px; }
+        progress::-webkit-progress-value { border-radius: 3px; }
+        #meter-temp::-webkit-progress-value { background-color: #f97316; }
+        #meter-light::-webkit-progress-value { background-color: #eab308; }
+        #meter-sound::-webkit-progress-value { background-color: #06b6d4; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Digital Twin</h1>
+            <div id="bt-status" class="w-3 h-3 rounded-full bg-slate-600 transition-colors"></div>
+        </div>
+        <button onclick="connectBluetooth()" id="btn-connect" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-colors">Connect micro:bit</button>
+    </header>
+
+    <!-- Main Grid Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+        
+        <!-- Left Panel: The Twin -->
+        <div class="panel p-6 flex flex-col items-center">
+            <h2 class="text-lg font-bold mb-8 text-slate-300">Digital Twin</h2>
+            
+            <div class="twin-board mb-8">
+                <div class="twin-logo">LOGO</div>
+                
+                <div id="btn-a-ui" class="twin-btn">A</div>
+                
+                <div class="led-grid" id="led-grid">
+                    <!-- Javascript will generate the 25 dots here -->
+                </div>
+                
+                <div id="btn-b-ui" class="twin-btn">B</div>
+            </div>
+
+            <button onclick="clearTwinScreen()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-6 rounded-full flex items-center gap-2 transition-colors border border-slate-600 shadow">
+                🧽 Clear Screen
+            </button>
+        </div>
+
+        <!-- Middle Panel: Instruments -->
+        <div class="panel p-6 flex flex-col">
+            <h2 class="text-lg font-bold mb-4 text-slate-300">Instruments</h2>
+            
+            <div id="shake-alert" class="w-full bg-slate-800 text-slate-500 font-bold text-center py-2 rounded-lg mb-6 border border-slate-700 transition-colors">NO SHAKE</div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <!-- Pitch -->
+                <div class="instrument-box">
+                    <span class="text-xs font-bold text-slate-400 mb-4 tracking-widest">PITCH</span>
+                    <div class="horizon-circle mb-3">
+                        <div id="pitch-ui" class="pitch-line"></div>
+                    </div>
+                    <div id="pitch-val" class="text-sm font-mono text-green-400 font-bold">0°</div>
+                </div>
+                
+                <!-- Roll -->
+                <div class="instrument-box">
+                    <span class="text-xs font-bold text-slate-400 mb-4 tracking-widest">ROLL</span>
+                    <div class="horizon-circle mb-3">
+                        <div id="roll-ui" class="roll-line"></div>
+                    </div>
+                    <div id="roll-val" class="text-sm font-mono text-blue-400 font-bold">0°</div>
+                </div>
+            </div>
+
+            <!-- Compass -->
+            <div class="instrument-box flex-1">
+                <span class="text-xs font-bold text-slate-400 mb-4 tracking-widest">COMPASS</span>
+                <div class="compass-circle mb-3">
+                    <div id="compass-ui" class="compass-needle"></div>
+                </div>
+                <div id="compass-val" class="text-sm font-mono text-red-400 font-bold">0° N</div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Telemetry & Controls -->
+        <div class="panel p-6 flex flex-col">
+            <h2 class="text-lg font-bold mb-6 text-slate-300">Telemetry & Controls</h2>
+            
+            <!-- Meters -->
+            <div class="flex-1 flex flex-col gap-6 mb-8">
+                <div>
+                    <div class="flex justify-between text-[10px] font-bold text-orange-400 mb-2 tracking-widest"><span>TEMP</span><span id="temp-val">0°C</span></div>
+                    <progress id="meter-temp" value="0" max="50"></progress>
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1"><span>0</span><span>50</span></div>
+                </div>
+                
+                <div>
+                    <div class="flex justify-between text-[10px] font-bold text-yellow-400 mb-2 tracking-widest"><span>LIGHT</span><span id="light-val">0</span></div>
+                    <progress id="meter-light" value="0" max="255"></progress>
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1"><span>0</span><span>255</span></div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-[10px] font-bold text-cyan-400 mb-2 tracking-widest"><span>SOUND</span><span id="sound-val">0</span></div>
+                    <progress id="meter-sound" value="0" max="255"></progress>
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1"><span>0</span><span>255</span></div>
+                </div>
+            </div>
+
+            <!-- Outgoing Controls -->
+            <div class="flex flex-col gap-3">
+                <div class="flex gap-2">
+                    <input type="text" id="txt-msg" placeholder="Type message..." class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                    <button onclick="sendText()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors">SEND</button>
+                </div>
+                
+                <div class="flex gap-2">
+                    <select id="sel-icon" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none">
+                        <option value="0">❤️ Heart</option>
+                        <option value="1">😀 Happy</option>
+                        <option value="2">😢 Sad</option>
+                        <option value="3">👻 Ghost</option>
+                        <option value="4">💀 Skull</option>
+                    </select>
+                    <button onclick="sendIcon()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors w-[76px]">SHOW</button>
+                </div>
+
+                <div class="flex gap-2">
+                    <select id="sel-melody" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none">
+                        <option value="0">🔔 BaDing</option>
+                        <option value="1">🍄 PowerUp</option>
+                        <option value="2">🥀 PowerDown</option>
+                    </select>
+                    <button onclick="sendMelody()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors w-[76px]">PLAY</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- BLUETOOTH GLOBALS ---
+        let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
+        const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; 
+        const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; 
+        const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+        let rxBuffer = ''; let commandQueue = []; let isTransmitting = false;
+        
+        let localLEDState = 0; // Tracks the 25-bit integer
+
+        // --- INIT UI ---
+        function initUI() {
+            const grid = document.getElementById('led-grid');
+            for(let i=0; i<25; i++) {
+                let dot = document.createElement('div');
+                dot.className = 'led-dot';
+                dot.id = `dot-${i}`;
+                dot.onclick = () => toggleLED(i);
+                grid.appendChild(dot);
+            }
+        }
+        initUI();
+
+        // --- BLUETOOTH SENDER QUEUE ---
+        async function sendBluetoothCommand(cmd) { 
+            if (!txCharacteristic) return; 
+            commandQueue.push(cmd); 
+            processCommandQueue(); 
+        }
+        async function processCommandQueue() { 
+            if (isTransmitting || commandQueue.length === 0) return; 
+            isTransmitting = true; 
+            const cmd = commandQueue.shift(); 
+            try { 
+                let data = new TextEncoder().encode(cmd + '\n'); 
+                if (txCharacteristic.properties.writeWithoutResponse) { 
+                    await txCharacteristic.writeValueWithoutResponse(data); 
+                } else { 
+                    await txCharacteristic.writeValue(data); 
+                } 
+            } catch (err) { console.error(err); } 
+            finally { 
+                isTransmitting = false; 
+                if (commandQueue.length > 0) setTimeout(processCommandQueue, 10); 
+            } 
+        }
+
+        // --- BLUETOOTH CONNECTION ---
+        async function connectBluetooth() {
+            try {
+                bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] });
+                bluetoothServer = await bluetoothDevice.gatt.connect(); 
+                uartService = await bluetoothServer.getPrimaryService(UART_SERVICE_UUID);
+                txCharacteristic = await uartService.getCharacteristic(UART_TX_CHAR_UUID); 
+                rxCharacteristic = await uartService.getCharacteristic(UART_RX_CHAR_UUID);
+                await rxCharacteristic.startNotifications(); 
+                rxCharacteristic.addEventListener('characteristicvaluechanged', handleIncomingData);
+
+                document.getElementById("btn-connect").innerText = "Connected";
+                document.getElementById("btn-connect").classList.replace("bg-blue-600", "bg-green-600");
+                document.getElementById("btn-connect").classList.replace("hover:bg-blue-500", "hover:bg-green-500");
+
+                bluetoothDevice.addEventListener('gattserverdisconnected', () => {
+                    document.getElementById("btn-connect").innerText = "Connect micro:bit";
+                    document.getElementById("btn-connect").classList.replace("bg-green-600", "bg-blue-600");
+                    document.getElementById("bt-status").className = "w-3 h-3 rounded-full bg-red-500";
+                });
+            } catch (error) { alert("Connection failed. Are you using Chrome/Edge?"); }
+        }
+
+        // --- PARSE INCOMING TELEMETRY ---
+        function handleIncomingData(event) {
+            // Flash the status dot
+            const p = document.getElementById('bt-status');
+            p.className = "w-3 h-3 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]";
+            clearTimeout(p.timer);
+            p.timer = setTimeout(() => { p.className = "w-3 h-3 rounded-full bg-slate-600"; }, 50);
+
+            let value = new TextDecoder().decode(event.target.value); 
+            rxBuffer += value; 
+            let lines = rxBuffer.split('\n');
+            while(lines.length > 1) { 
+                let line = lines.shift().trim();
+                if (line.startsWith("TWIN:")) {
+                    let parts = line.substring(5).split(",");
+                    if (parts.length >= 9) updateDashboard(parts);
+                }
+            }
+            rxBuffer = lines[0];
+        }
+
+        function updateDashboard(data) {
+            // data = [btnA, btnB, shake, pitch, roll, compass, temp, light, sound]
+            
+            // Buttons
+            if (data[0] === '1') document.getElementById('btn-a-ui').classList.add('pressed');
+            else document.getElementById('btn-a-ui').classList.remove('pressed');
+            
+            if (data[1] === '1') document.getElementById('btn-b-ui').classList.add('pressed');
+            else document.getElementById('btn-b-ui').classList.remove('pressed');
+
+            // Shake
+            let shakeEl = document.getElementById('shake-alert');
+            if (data[2] === '1') {
+                shakeEl.innerText = "🚨 SHAKE DETECTED 🚨";
+                shakeEl.className = "w-full bg-red-600 text-white font-bold text-center py-2 rounded-lg mb-6 shadow-[0_0_15px_rgba(239,68,68,0.6)] border border-red-500 transition-colors";
+            } else {
+                shakeEl.innerText = "NO SHAKE";
+                shakeEl.className = "w-full bg-slate-800 text-slate-500 font-bold text-center py-2 rounded-lg mb-6 border border-slate-700 transition-colors";
+            }
+
+            // Pitch & Roll (Animations)
+            let pitch = parseInt(data[3]);
+            let roll = parseInt(data[4]);
+            document.getElementById('pitch-val').innerText = pitch + "°";
+            document.getElementById('roll-val').innerText = roll + "°";
+            
+            // Map pitch (-90 to 90) to top percentage (0% to 100%)
+            let pPercent = 50 + (pitch / 90) * 50;
+            document.getElementById('pitch-ui').style.top = pPercent + "%";
+            // Map roll directly to rotate degrees
+            document.getElementById('roll-ui').style.transform = `translateY(-50%) rotate(${roll}deg)`;
+
+            // Compass
+            let heading = parseInt(data[5]);
+            let dir = "N";
+            if (heading > 45 && heading <= 135) dir = "E";
+            else if (heading > 135 && heading <= 225) dir = "S";
+            else if (heading > 225 && heading <= 315) dir = "W";
+            
+            document.getElementById('compass-val').innerText = heading + "° " + dir;
+            document.getElementById('compass-ui').style.transform = `rotate(${heading}deg)`;
+
+            // Meters
+            document.getElementById('temp-val').innerText = data[6] + "°C";
+            document.getElementById('meter-temp').value = data[6];
+
+            document.getElementById('light-val').innerText = data[7];
+            document.getElementById('meter-light').value = data[7];
+
+            document.getElementById('sound-val').innerText = data[8];
+            document.getElementById('meter-sound').value = data[8];
+        }
+
+        // --- OUTGOING CONTROLS ---
+        function toggleLED(i) {
+            localLEDState = localLEDState ^ (1 << i);
+            
+            // Instantly update UI
+            for(let j=0; j<25; j++) {
+                let dot = document.getElementById(`dot-${j}`);
+                if ((localLEDState & (1 << j)) !== 0) dot.classList.add('on');
+                else dot.classList.remove('on');
+            }
+            
+            sendBluetoothCommand(`L:${localLEDState}`);
+        }
+
+        function clearTwinScreen() {
+            localLEDState = 0;
+            for(let j=0; j<25; j++) { document.getElementById(`dot-${j}`).classList.remove('on'); }
+            sendBluetoothCommand("C:0");
+        }
+
+        function sendText() {
+            let val = document.getElementById('txt-msg').value;
+            if (val) {
+                sendBluetoothCommand(`T:${val}`);
+                document.getElementById('txt-msg').value = "";
+            }
+        }
+
+        function sendIcon() {
+            let idx = document.getElementById('sel-icon').value;
+            sendBluetoothCommand(`I:${idx}`);
+        }
+
+        function sendMelody() {
+            let idx = document.getElementById('sel-melody').value;
+            sendBluetoothCommand(`M:${idx}`);
+        }
+    </script>
+</body>
+</html>
