@@ -24,9 +24,9 @@ namespace makerjr {
                 let compass = input.compassHeading();
                 let temp = input.temperature();
                 let light = input.lightLevel();
-                let sound = input.soundLevel(); 
+                let sound = input.soundLevel(); // V2 Built-in mic
 
-                // MakeCode-Safe string concatenation (No template literals)
+                // MakeCode-Safe string concatenation
                 let packet = "TWIN:" + btnA + "," + btnB + "," + shake + "," + pitch + "," + roll + "," + compass + "," + temp + "," + light + "," + sound + "\n";
                 bluetooth.uartWriteString(packet);
                 
@@ -38,7 +38,7 @@ namespace makerjr {
         bluetooth.onUartDataReceived("\n", function () {
             let cmd = bluetooth.uartReadUntil("\n");
             
-            // MakeCode-Safe way to trim carriage returns from Bluetooth text
+            // MakeCode-Safe way to trim carriage returns
             let cleanCmd = "";
             for(let i = 0; i < cmd.length; i++) {
                 if(cmd.charCodeAt(i) >= 32) {
@@ -62,7 +62,7 @@ namespace makerjr {
                 control.inBackground(function() {
                     basic.showString(msg);
                     basic.clearScreen();
-                    redrawLEDs(); // Restore the drawing after text finishes
+                    redrawLEDs(); 
                 });
             }
             else if (cleanCmd.charAt(0) === 'I') {
@@ -77,11 +77,13 @@ namespace makerjr {
                 currentLEDs = 0; 
             }
             else if (cleanCmd.charAt(0) === 'M') {
-                // Play Melody Command (Legacy Safe API)
+                // V2 Sound Expressions
                 let melIdx = parseInt(cleanCmd.substr(2));
-                if (melIdx === 0) music.startMelody(music.builtInMelody(Melodies.BaDing), MelodyOptions.OnceInBackground);
-                else if (melIdx === 1) music.startMelody(music.builtInMelody(Melodies.PowerUp), MelodyOptions.OnceInBackground);
-                else if (melIdx === 2) music.startMelody(music.builtInMelody(Melodies.PowerDown), MelodyOptions.OnceInBackground);
+                if (melIdx === 0) soundExpression.hello.play();
+                else if (melIdx === 1) soundExpression.happy.play();
+                else if (melIdx === 2) soundExpression.sad.play();
+                else if (melIdx === 3) soundExpression.giggle.play();
+                else if (melIdx === 4) soundExpression.twinkle.play();
             }
         });
     }
